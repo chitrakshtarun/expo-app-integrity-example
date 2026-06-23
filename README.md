@@ -1,56 +1,115 @@
-# Welcome to your Expo app 👋
+# expo-app-integrity-example
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A real Expo (SDK 56) app that proves requests come from a genuine, untampered
+build on a real device, using
+[`@expo/app-integrity`](https://docs.expo.dev/versions/v56.0.0/sdk/app-integrity/)
+— Apple **App Attest** on iOS and Google **Play Integrity** on Android — with
+**server-side verification** via Expo Router API routes.
 
-## Get started
+The client requests a one-time challenge, runs the platform attestation flow, and
+posts the result back. The server verifies it with
+[`node-app-attest`](https://github.com/uebelack/node-app-attest) (iOS) and
+[`@googleapis/playintegrity`](https://www.npmjs.com/package/@googleapis/playintegrity)
+(Android).
 
-1. Install dependencies
+## ⚠️ Requirements
 
-   ```bash
-   npm install
-   ```
+- **Real device only.** App Attest and Play Integrity do not work on the iOS
+  Simulator or Android emulator, nor in Expo Go (App Attest needs an entitlement).
+  Use a development build.
+- **The server runs on Node.** The verification packages are Node-only, so the API
+  routes cannot run on Cloudflare Workers / EAS Hosting. Run them with
+  `expo serve` for dev, or self-host the exported server on any Node platform.
+- **Credentials** from Apple and Google are required (see [Configuration](#configuration)).
 
-2. Start the app
+## Setup
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```sh
+npm install
+cp .env.example .env   # fill in your values
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Run (development, real device)
 
-### Other setup steps
+1. Start the Node server with the API routes:
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+   ```sh
+   npx expo serve
+   ```
 
-## Learn more
+2. Build and run a development build on a connected device:
 
-To learn more about developing your project with Expo, look at the following resources:
+   ```sh
+   npx expo run:ios     # device with the App Attest capability
+   npx expo run:android # device with Play Integrity configured
+   ```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+   For a device to reach the API routes, set `EXPO_PUBLIC_API_URL` to a URL the
+   device can reach (your machine's LAN URL, or a deployed server).
 
-## Join the community
+3. Tap **Run attestation** and watch the result log.
 
-Join our community of developers creating universal apps.
+> Dev builds use the **development** App Attest environment. Set
+> `APP_ATTEST_ENVIRONMENT=development` and the server's
+> `IOS_ALLOW_DEVELOPMENT_ENVIRONMENT=true` (the `development` EAS build profile
+> already sets the former).
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## TestFlight
+
+1. Deploy the server to a **publicly reachable Node host** and set
+   `EXPO_PUBLIC_API_URL` to that URL — a production native build does **not**
+   embed the API routes.
+2. Use the production App Attest environment (default): `APP_ATTEST_ENVIRONMENT=production`
+   and server `IOS_ALLOW_DEVELOPMENT_ENVIRONMENT=false`.
+3. Build and submit:
+
+   ```sh
+   eas build --platform ios --profile production
+   eas submit --platform ios --profile production
+   ```
+
+## Configuration
+
+### Apple (App Attest)
+
+- The entitlement is set in `app.config.ts` from `APP_ATTEST_ENVIRONMENT`
+  (`production` by default; `development` for dev builds). Register the App ID
+  (`com.chitrakshtarun.appintegrity`) with the App Attest capability in your
+  Apple Developer account.
+- Server: set `IOS_BUNDLE_IDENTIFIER`, `IOS_TEAM_IDENTIFIER`, and
+  `IOS_ALLOW_DEVELOPMENT_ENVIRONMENT`.
+
+### Google (Play Integrity)
+
+- Enable the Play Integrity API, note your **cloud project number**, and set
+  `EXPO_PUBLIC_CLOUD_PROJECT_NUMBER`.
+- Create a service account with Play Integrity access, download its JSON key, and
+  point `GOOGLE_APPLICATION_CREDENTIALS` at the file. Set
+  `GOOGLE_PLAY_APP_PACKAGE_NAME`.
+
+> The in-memory store in `src/helpers/store.ts` is for demonstration. A real backend
+> would persist challenges and attested keys in a database.
+
+## Project structure
+
+```
+src
+├── app
+│   ├── _layout.tsx                 Expo Router stack
+│   ├── index.tsx                   Client UI + attestation flow
+│   └── api
+│       ├── challenge+api.ts        Issues one-time challenges
+│       └── verify+api.ts           Verifies attestations/tokens
+└── helpers
+    ├── store.ts                    In-memory challenge & key store
+    ├── verify-ios.ts               App Attest (node-app-attest)
+    ├── verify-android.ts           Play Integrity (@googleapis/playintegrity)
+    └── is-valid-android-request.ts Play Integrity verdict checks
+```
+
+## Notes
+
+- [Expo App Integrity (v56)](https://docs.expo.dev/versions/v56.0.0/sdk/app-integrity/)
+- [node-app-attest](https://github.com/uebelack/node-app-attest)
+- [@googleapis/playintegrity](https://www.npmjs.com/package/@googleapis/playintegrity)
+- [Google — Play Integrity standard requests](https://developer.android.com/google/play/integrity/standard)
