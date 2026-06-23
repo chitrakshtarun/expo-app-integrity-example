@@ -72,10 +72,6 @@ cp .env.example .env   # fill in your values
 
 ### Apple (App Attest)
 
-- The entitlement is set in `app.config.ts` from `APP_ATTEST_ENVIRONMENT`
-  (`production` by default; `development` for dev builds). Register the App ID
-  (`com.chitrakshtarun.appintegrity`) with the App Attest capability in your
-  Apple Developer account.
 - Server: set `IOS_BUNDLE_IDENTIFIER`, `IOS_TEAM_IDENTIFIER`, and
   `IOS_ALLOW_DEVELOPMENT_ENVIRONMENT`.
 
