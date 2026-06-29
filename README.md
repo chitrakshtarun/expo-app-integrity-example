@@ -12,6 +12,8 @@ posts the result back. The server verifies it with
 [`@googleapis/playintegrity`](https://www.npmjs.com/package/@googleapis/playintegrity)
 (Android).
 
+https://github.com/user-attachments/assets/4968e98d-f6e2-49ff-b014-78f6573dfdd2
+
 ## ⚠️ Requirements
 
 - **Real device only.** App Attest and Play Integrity do not work on the iOS
